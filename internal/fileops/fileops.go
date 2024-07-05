@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 )
 
 // Source represents the source file or directory to be copied,
@@ -173,7 +173,8 @@ func copyFile(src, dst string, bufferSize int, ignorePaths map[string]bool) erro
 func shouldIgnoreSource(src string, ignorePaths map[string]bool) bool {
 	cleanSrc := filepath.Clean(src)
 	for ignorePath := range ignorePaths {
-		if strings.HasPrefix(cleanSrc, filepath.Clean(ignorePath)) {
+		match, _ := regexp.MatchString(ignorePath, cleanSrc)
+		if match {
 			return true
 		}
 	}

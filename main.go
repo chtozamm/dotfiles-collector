@@ -40,10 +40,11 @@ func (app *App) SetupCollectPaths() {
 // SetupCollectPaths sets up the source paths to be collected
 func (app *App) SetupIgnorePaths() {
 	app.IgnorePaths = map[string]bool{
-		filepath.Join(app.AppData, "Code", "User", `globalStorage`):    true,
-		filepath.Join(app.AppData, "Code", "User", `History`):          true,
-		filepath.Join(app.AppData, "Code", "User", `sync`):             true,
-		filepath.Join(app.AppData, "Code", "User", `workspaceStorage`): true,
+		`\.git$`:                                true,
+		`.*Code[/\\]User[/\\]globalStorage$`:    true,
+		`.*Code[/\\]User[/\\]History$`:          true,
+		`.*Code[/\\]User[/\\]sync$`:             true,
+		`.*Code[/\\]User[/\\]workspaceStorage$`: true,
 	}
 }
 

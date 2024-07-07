@@ -11,8 +11,8 @@ type CollectPath struct {
 	CreatedAt string
 }
 
-type IgnoreRegexp struct {
+type IgnorePattern struct {
 	ID        int64
-	Regexp    string
+	Pattern   string
 	CreatedAt string
 }

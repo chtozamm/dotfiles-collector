@@ -24,11 +24,11 @@ func (q *Queries) AddCollectPath(ctx context.Context, arg AddCollectPathParams) 
 }
 
 const addIgnorePath = `-- name: AddIgnorePath :exec
-INSERT INTO ignore_regexps (regexp) VALUES (?)
+INSERT INTO ignore_patterns (pattern) VALUES (?)
 `
 
-func (q *Queries) AddIgnorePath(ctx context.Context, regexp string) error {
-	_, err := q.db.ExecContext(ctx, addIgnorePath, regexp)
+func (q *Queries) AddIgnorePath(ctx context.Context, pattern string) error {
+	_, err := q.db.ExecContext(ctx, addIgnorePath, pattern)
 	return err
 }
 
@@ -65,19 +65,19 @@ func (q *Queries) GetCollectPaths(ctx context.Context) ([]CollectPath, error) {
 }
 
 const getIgnoreRegexps = `-- name: GetIgnoreRegexps :many
-SELECT id, "regexp", created_at FROM ignore_regexps
+SELECT id, pattern, created_at FROM ignore_patterns
 `
 
-func (q *Queries) GetIgnoreRegexps(ctx context.Context) ([]IgnoreRegexp, error) {
+func (q *Queries) GetIgnoreRegexps(ctx context.Context) ([]IgnorePattern, error) {
 	rows, err := q.db.QueryContext(ctx, getIgnoreRegexps)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []IgnoreRegexp
+	var items []IgnorePattern
 	for rows.Next() {
-		var i IgnoreRegexp
-		if err := rows.Scan(&i.ID, &i.Regexp, &i.CreatedAt); err != nil {
+		var i IgnorePattern
+		if err := rows.Scan(&i.ID, &i.Pattern, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -101,7 +101,7 @@ func (q *Queries) RemoveCollectPath(ctx context.Context, id int64) error {
 }
 
 const removeIgnoreRegexp = `-- name: RemoveIgnoreRegexp :exec
-DELETE FROM ignore_regexps WHERE id = ?
+DELETE FROM ignore_patterns WHERE id = ?
 `
 
 func (q *Queries) RemoveIgnoreRegexp(ctx context.Context, id int64) error {

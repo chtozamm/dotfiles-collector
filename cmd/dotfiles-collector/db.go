@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS collect_paths (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
 
-CREATE TABLE IF NOT EXISTS ignore_regexps (
+CREATE TABLE IF NOT EXISTS ignore_patterns (
   id   INTEGER PRIMARY KEY,
-  regexp TEXT NOT NULL UNIQUE,
+  pattern TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
 
@@ -38,12 +38,12 @@ END;
 
 func (app *App) setupDB() {
 	// Ensure the application data directory exists, create it if it doesn't
-	if err := os.MkdirAll(app.DATA_DIR, 0755); err != nil {
-		log.Fatalf("Error creating application data directory %s: %v", app.DATA_DIR, err)
+	if err := os.MkdirAll(app.DataDir, 0755); err != nil {
+		log.Fatalf("Error creating application data directory %s: %v", app.DataDir, err)
 	}
 
 	// Open a connection to the SQLite database
-	db, err := sql.Open("sqlite3", filepath.Join(app.DATA_DIR, "dotfiles.db"))
+	db, err := sql.Open("sqlite3", filepath.Join(app.DataDir, "dotfiles.db"))
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}

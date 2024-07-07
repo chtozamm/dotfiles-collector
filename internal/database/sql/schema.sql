@@ -5,8 +5,8 @@ CREATE TABLE collect_paths (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
 
-CREATE TABLE ignore_regexps (
+CREATE TABLE ignore_patterns (
   id   INTEGER PRIMARY KEY,
-  regexp TEXT NOT NULL UNIQUE,
+  pattern TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );

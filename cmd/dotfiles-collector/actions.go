@@ -10,7 +10,7 @@ import (
 // specified in the application.
 func (app *App) copyFiles() {
 	for _, src := range app.SourcePaths {
-		if err := fileops.Copy(app.Destination, src, app.BufferSize, app.IgnorePaths); err != nil {
+		if err := fileops.Copy(app.Destination, src, app.BufferSize, app.IgnorePatterns); err != nil {
 			log.Printf("Error copying %s: %v", src.Path, err)
 		}
 	}

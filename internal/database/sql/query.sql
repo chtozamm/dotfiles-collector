@@ -8,10 +8,10 @@ INSERT INTO collect_paths (path, parent_dir) VALUES (?, ?);
 DELETE FROM collect_paths WHERE id = ?;
 
 -- name: GetIgnoreRegexps :many
-SELECT * FROM ignore_regexps;
+SELECT * FROM ignore_patterns;
 
 -- name: AddIgnorePath :exec
-INSERT INTO ignore_regexps (regexp) VALUES (?);
+INSERT INTO ignore_patterns (pattern) VALUES (?);
 
 -- name: RemoveIgnoreRegexp :exec
-DELETE FROM ignore_regexps WHERE id = ?;
+DELETE FROM ignore_patterns WHERE id = ?;

@@ -27,10 +27,10 @@ func (app *App) setupDirectories() {
 		if localAppData == "" {
 			log.Fatal("LOCALAPPDATA environment variable is not defined")
 		}
-		app.DATA_DIR = filepath.Join(localAppData, app.NAME)
+		app.DataDir = filepath.Join(localAppData, app.Name)
 	} else {
 		// On Unix-like systems (Linux, macOS), use ~/.config/dotfiles
-		app.DATA_DIR = filepath.Join(homeDir, ".config", app.NAME)
+		app.DataDir = filepath.Join(homeDir, ".config", app.Name)
 	}
 }
 
@@ -49,9 +49,9 @@ func (app *App) setupCollectPaths() {
 
 // SetupCollectPaths sets up the source paths to be collected
 func (app *App) setupIgnorePaths() {
-	app.IgnorePaths = make(map[string]bool)
+	app.IgnorePatterns = make(map[string]bool)
 	ignorePaths, _ := app.DB.GetIgnoreRegexps(context.Background())
 	for _, path := range ignorePaths {
-		app.IgnorePaths[path.Regexp] = true
+		app.IgnorePatterns[path.Pattern] = true
 	}
 }

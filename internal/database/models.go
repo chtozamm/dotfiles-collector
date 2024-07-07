@@ -4,17 +4,15 @@
 
 package database
 
-import (
-	"database/sql"
-)
-
 type CollectPath struct {
 	ID        int64
 	Path      string
-	ParentDir sql.NullString
+	ParentDir string
+	CreatedAt string
 }
 
-type IgnorePath struct {
-	ID     int64
-	Regexp string
+type IgnoreRegexp struct {
+	ID        int64
+	Regexp    string
+	CreatedAt string
 }

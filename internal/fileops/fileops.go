@@ -27,7 +27,7 @@ func Copy(dst string, src Source, bufferSize int, ignorePaths map[string]bool) e
 		return fmt.Errorf("cannot stat source file %s: %v", src.Path, err)
 	}
 
-	if src.ParentDir != "" {
+	if src.ParentDir != "." {
 		dst = filepath.Join(dst, src.ParentDir)
 	}
 

@@ -7,11 +7,15 @@ INSERT INTO collect_paths (path, parent_dir) VALUES (?, ?);
 -- name: RemoveCollectPath :exec
 DELETE FROM collect_paths WHERE id = ?;
 
--- name: GetIgnoreRegexps :many
+-- name: GetIgnorePatterns :many
 SELECT * FROM ignore_patterns;
 
--- name: AddIgnorePath :exec
+-- name: AddIgnorePattern :exec
 INSERT INTO ignore_patterns (pattern) VALUES (?);
 
--- name: RemoveIgnoreRegexp :exec
+-- name: RemoveIgnorePattern :exec
 DELETE FROM ignore_patterns WHERE id = ?;
+
+-- name: GetAppConfig :many
+SELECT * FROM app_config;
+

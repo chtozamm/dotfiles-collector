@@ -1,8 +1,7 @@
-package main
+package app
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,8 +10,15 @@ import (
 	"github.com/chtozamm/dotfiles-collector/internal/fileops"
 )
 
+// func (app *App) SetupConfig() {
+// 	config, _ := app.DB.GetAppConfig(context.Background())
+//   if config != nil {
+//     if config.DestPath
+//   }
+// }
+
 // SetupDirectories sets up directory paths for the application based on the operating system.
-func (app *App) setupDirectories() {
+func (app *App) SetupDirectories() {
 	// Retrieve the user's home directory.
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -35,22 +41,18 @@ func (app *App) setupDirectories() {
 }
 
 // SetupCollectPaths sets up the source paths to be collected
-func (app *App) setupCollectPaths() {
+func (app *App) SetupCollectPaths() {
 	app.SourcePaths = []fileops.Source{}
 	collectPaths, _ := app.DB.GetCollectPaths(context.Background())
 	for _, path := range collectPaths {
-		app.SourcePaths = append(app.SourcePaths, fileops.Source{Path: path.Path, ParentDir: path.ParentDir})
-	}
-	if len(app.SourcePaths) == 0 {
-		fmt.Println("No sources found in database to copy")
-		return
+		app.SourcePaths = append(app.SourcePaths, fileops.Source{ID: path.ID, Path: path.Path, ParentDir: path.ParentDir})
 	}
 }
 
 // SetupCollectPaths sets up the source paths to be collected
-func (app *App) setupIgnorePaths() {
+func (app *App) SetupIgnorePaths() {
 	app.IgnorePatterns = make(map[string]bool)
-	ignorePaths, _ := app.DB.GetIgnoreRegexps(context.Background())
+	ignorePaths, _ := app.DB.GetIgnorePatterns(context.Background())
 	for _, path := range ignorePaths {
 		app.IgnorePatterns[path.Pattern] = true
 	}

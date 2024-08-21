@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // Source represents the source file or directory to be copied,
 // including its path and optional parent directory.
 type Source struct {
+	ID        int64
 	Path      string
 	ParentDir string
 }
@@ -35,6 +37,48 @@ func Copy(dst string, src Source, bufferSize int, ignorePaths map[string]bool) e
 		return copyDirContents(src.Path, dst, bufferSize, ignorePaths)
 	}
 	return copyFile(src.Path, dst, bufferSize, ignorePaths)
+}
+
+// ListFiles lists all files in the specified directory and returns their paths.
+func ListFiles(dir string, depth int) ([]string, error) {
+	if depth == 0 {
+		return nil, nil
+	}
+	if depth > 0 {
+		depth--
+	}
+
+	var files []string
+	seenDirs := make(map[string]struct{}) // To track seen directories
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(dir, entry.Name())
+		if entry.IsDir() {
+			// Add the directory to the list if it hasn't been added yet
+			if _, exists := seenDirs[entryPath]; !exists {
+				files = append(files, entryPath)
+				seenDirs[entryPath] = struct{}{} // Mark this directory as seen
+			}
+			// If depth is greater than 0, recursively list files in subdirectories
+			if depth > 0 {
+				subFiles, err := ListFiles(entryPath, depth)
+				if err != nil {
+					// TODO: if err is NotExists, handle specifically
+					return nil, fmt.Errorf("error listing files in directory %s: %v", entryPath, err)
+				}
+				files = append(files, subFiles...)
+			}
+		} else {
+			files = append(files, entryPath)
+		}
+	}
+
+	return files, nil
 }
 
 // copyDir copies the directory from source (src) to destination (dst).
@@ -173,7 +217,7 @@ func copyFile(src, dst string, bufferSize int, ignorePaths map[string]bool) erro
 func shouldIgnoreSource(src string, ignorePaths map[string]bool) bool {
 	cleanSrc := filepath.Clean(src)
 	for ignorePath := range ignorePaths {
-		match, _ := regexp.MatchString(ignorePath, cleanSrc)
+		match, _ := regexp.MatchString(strings.ToLower(ignorePath), strings.ToLower(cleanSrc))
 		if match {
 			return true
 		}

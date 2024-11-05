@@ -13,16 +13,16 @@ import (
 
 // copyFiles copies files from the source paths to the destination
 // specified in the application.
-func (app *App) CopyFiles() {
+func (app *App) CopyFiles() error {
 	if len(app.SourcePaths) == 0 {
-		fmt.Println("No source paths found in database to collect")
-		return
+		return fmt.Errorf("no source paths found in database to collect")
 	}
 	for _, src := range app.SourcePaths {
 		if err := fileops.Copy(app.Destination, src, app.BufferSize, app.IgnorePatterns); err != nil {
-			log.Printf("Error copying %s: %v", src.Path, err)
+			return fmt.Errorf("failed to copy %s: %v\n", src.Path, err)
 		}
 	}
+	return nil
 }
 
 // listCollectedFiles lists the currently collected files in the destination directory.

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"log"
-	"os"
 
 	"github.com/chtozamm/dotfiles-collector/internal/app"
 	"github.com/spf13/cobra"
@@ -28,7 +27,6 @@ func Execute(app *app.App) {
 
 	// Execute commands
 	if err := rootCmd.Execute(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }

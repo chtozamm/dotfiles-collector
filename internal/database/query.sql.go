@@ -32,31 +32,20 @@ func (q *Queries) AddIgnorePattern(ctx context.Context, pattern string) error {
 	return err
 }
 
-const getAppConfig = `-- name: GetAppConfig :many
-SELECT id, dest_path FROM app_config
+const getCollectPath = `-- name: GetCollectPath :one
+SELECT id, path, parent_dir, created_at FROM collect_paths WHERE path = ?
 `
 
-func (q *Queries) GetAppConfig(ctx context.Context) ([]AppConfig, error) {
-	rows, err := q.db.QueryContext(ctx, getAppConfig)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []AppConfig
-	for rows.Next() {
-		var i AppConfig
-		if err := rows.Scan(&i.ID, &i.DestPath); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetCollectPath(ctx context.Context, path string) (CollectPath, error) {
+	row := q.db.QueryRowContext(ctx, getCollectPath, path)
+	var i CollectPath
+	err := row.Scan(
+		&i.ID,
+		&i.Path,
+		&i.ParentDir,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getCollectPaths = `-- name: GetCollectPaths :many
@@ -91,6 +80,17 @@ func (q *Queries) GetCollectPaths(ctx context.Context) ([]CollectPath, error) {
 	return items, nil
 }
 
+const getIgnorePattern = `-- name: GetIgnorePattern :one
+SELECT id, pattern, created_at FROM ignore_patterns WHERE pattern = ?
+`
+
+func (q *Queries) GetIgnorePattern(ctx context.Context, pattern string) (IgnorePattern, error) {
+	row := q.db.QueryRowContext(ctx, getIgnorePattern, pattern)
+	var i IgnorePattern
+	err := row.Scan(&i.ID, &i.Pattern, &i.CreatedAt)
+	return i, err
+}
+
 const getIgnorePatterns = `-- name: GetIgnorePatterns :many
 SELECT id, pattern, created_at FROM ignore_patterns
 `
@@ -119,19 +119,19 @@ func (q *Queries) GetIgnorePatterns(ctx context.Context) ([]IgnorePattern, error
 }
 
 const removeCollectPath = `-- name: RemoveCollectPath :exec
-DELETE FROM collect_paths WHERE id = ?
+DELETE FROM collect_paths WHERE path = ?
 `
 
-func (q *Queries) RemoveCollectPath(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, removeCollectPath, id)
+func (q *Queries) RemoveCollectPath(ctx context.Context, path string) error {
+	_, err := q.db.ExecContext(ctx, removeCollectPath, path)
 	return err
 }
 
 const removeIgnorePattern = `-- name: RemoveIgnorePattern :exec
-DELETE FROM ignore_patterns WHERE id = ?
+DELETE FROM ignore_patterns WHERE pattern = ?
 `
 
-func (q *Queries) RemoveIgnorePattern(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, removeIgnorePattern, id)
+func (q *Queries) RemoveIgnorePattern(ctx context.Context, pattern string) error {
+	_, err := q.db.ExecContext(ctx, removeIgnorePattern, pattern)
 	return err
 }

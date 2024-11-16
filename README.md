@@ -1,42 +1,111 @@
 # Dotfiles Collector
 
-Dotfiles Collector is a command-line interface (CLI) tool designed to collect configuration files from specified sources and organize them in a defined destination directory.
+Dotfiles Collector is a command-line interface (CLI) tool designed to gather configuration files across an operating system.
+It allows you to manage paths to files and directories you want to collect and then copy them in one place with a single command.
+Additionally, you can add ignore patterns as regular expressions that Dotfiles Collector would ignore if encountered. 
 
 ## Requirements
 
-Dotfiles Collector supports both Windows and Unix-like operating systems.
+- Go is required to build or [install](#installation) the application
+- Both **Windows** and **Unix**-like operating systems are supported
 
-- Tested to work with **[Go](https://go.dev/doc/install) v1.22.4** or greater.
+## Foreword
 
-## Installation
+Dotfiles Collector creates two directories when you use it for the first time:
 
-```shell
-go install https://github.com/chtozamm/dotfiles-collector
-```
+|             | Collected Files          | Application Data                    |
+| ----------- | ------------------------ | ----------------------------------- |
+| **Windows** | `%USERPROFILE%/dotfiles` | `%LOCALAPPDATA%/dotfiles-collector` |
+| **Unix**    | `~/dotfiles`             | `~/.config/dotfiles-collector`      |
+
+The first directory is where you find the files you have collected. 
+The second directory contains an SQLite3 database file with your configuration.
 
 ## Usage
 
-To get started, run the command without any command-line arguments to see a list of available actions and options:
+> [!NOTE]
+> Dotfiles Collector can operate in two modes: **command mode** and **interactive mode**.
 
-```shell
-dotfiles-collector
+### Command Mode
+
+To use **command mode**, run `dotfiles-collector --help` to display available commands.
+
+```plaintext
+Usage:
+  dotfiles-collector [command]
+
+Available Commands:
+  collect     Collect files specified in source paths
+  list        List collected files
+  help        Help about any command
+  paths       Manage source paths
+  ignore      Manage ignore patterns
 ```
 
-This will display a help message detailing the commands you can use. These commands include:
+#### Examples
 
-- `dotfiles-collector collect`: Collects configuration files from the defined sources.
-- `dotfiles-collector list`: Lists all collected dotfiles.
-- `dotfiles-collector paths [add|remove|list]`: Manages source paths for file collection.
-- `dotfiles-collector ignore [add|remove|list]`: Manages ignore patterns for file exclusion.
-<!--- `dotfiles-collector config`: Configures settings such as the destination path.-->
+You can specify which directories or files it should collect. 
 
-## Features
+```sh
+dotfiles-collector paths add "~/.gitconfig"
+```
 
-- [x] **File Collection**: Copies configuration files from sources defined in the database to the `App.Destination` directory (default: `~/dotfiles`).
-- [x] **SQLite Database**: Manages paths for file collection and regular expressions for file exclusion using an embedded SQLite3 database (`dotfiles.db`), stored in `App.DataDir`.
-- [x] **Cobra Integration**: Utilizes [Cobra](https://github.com/spf13/cobra) CLI framework for command-line operations.
-- [x] **Command-Line Arguments**: Supports additional command-line arguments for listing, adding, and removing source paths and ignore patterns from the database.
+It also works with relative to current working directory paths:
 
-**Planned Features**:
-  - **Configuration**: Store configuration settings, such as the destination path, in a database table that can be edited using the `config` command.
-  <!--- **Interactive mode**: Launch a user-friendly text-based user interface (TUI) when no command-line arguments are provided..-->
+```sh
+dotfiles-collector paths add .
+```
+
+Sometimes you might want the collector to create a subdirectory. To do so, you can specify a second argument 
+after the source path. The following example will create a `backup` directory for `sqlite.db`:
+
+
+```sh
+dotfiles-collector paths add "~/my-project/sqlite.db" "backup"
+```
+
+Optionally, you can add regular expressions (ignore patterns) that collector will skip if it encounters file 
+or directory which name matches the pattern. For example:
+
+```sh
+dotfiles-collector ignore add ".*node_modules$"
+```
+
+The following Windows example will result in the whole `PowerShell` directory being collected except for its child directory `Modules`:
+
+```sh
+dotfiles-collector paths add "D:\Documents\PowerShell"
+dotfiles-collector ignore add ".*PowerShell[/\\]Modules$"
+dotfiles-collector collect
+```
+
+### Interactive mode
+
+To start **interactive mode**, simply run `dotfiles-collector` without additional arguments.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://i.imgur.com/oSVVtbY.gif">
+  <source media="(prefers-color-scheme: light)" srcset="https://i.imgur.com/oSVVtbY.gif">
+  <img width="600" alt="A demonstration of interactive mode" src="https://i.imgur.com/oSVVtbY.gif">
+</picture>
+
+## Installation
+
+Install with Go:
+
+```sh
+go install github.com/chtozamm/dotfiles-collector@latest
+```
+
+## Technologies Used
+
+Dotfiles Collector is built using the following tools and libraries:
+
+- **Go**: The programming language used to develop the application.
+- **SQLite3**: A lightweight embedded database used to store configuration data.
+- **Cobra**: A library for creating command-line applications.
+- **Charm**: A library for building interactive terminal applications.
+
+## License
+
+[MIT](https://github.com/chtozamm/dotfiles-collector/blob/main/LICENSE.md)

@@ -4,11 +4,6 @@
 
 package database
 
-type AppConfig struct {
-	ID       int64
-	DestPath string
-}
-
 type CollectPath struct {
 	ID        int64
 	Path      string

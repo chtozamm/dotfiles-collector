@@ -11,8 +11,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// SetupDB opens the database connection, initializes the schema and assigns
+// the connection to the application.
 func (app *App) SetupDB() {
-	// Ensure the application data directory exists, create it if it doesn't
+	// Ensure the application data directory exists, create if it doesn't
 	if err := os.MkdirAll(app.DataDir, 0o755); err != nil {
 		log.Fatalf("Error creating application data directory %s: %v", app.DataDir, err)
 	}
@@ -33,11 +35,6 @@ func (app *App) SetupDB() {
 }
 
 var schema = `
-CREATE TABLE IF NOT EXISTS app_config (
-  id   INTEGER PRIMARY KEY,
-  dest_path TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS collect_paths (
   id   INTEGER PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,

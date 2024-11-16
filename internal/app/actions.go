@@ -3,115 +3,149 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
-	"text/tabwriter"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/chtozamm/dotfiles-collector/internal/database"
 	"github.com/chtozamm/dotfiles-collector/internal/fileops"
 )
 
-// copyFiles copies files from the source paths to the destination
-// specified in the application.
+// CopyFiles prepares source paths and copies them to the destination.
 func (app *App) CopyFiles() error {
 	if len(app.SourcePaths) == 0 {
 		return fmt.Errorf("no source paths found in database to collect")
 	}
 	for _, src := range app.SourcePaths {
-		if err := fileops.Copy(app.Destination, src, app.BufferSize, app.IgnorePatterns); err != nil {
-			return fmt.Errorf("failed to copy %s: %v\n", src.Path, err)
+		dstPath := app.Destination
+		// Append parent directory name to destination if specified
+		if src.ParentDir != "." {
+			dstPath = filepath.Join(app.Destination, src.ParentDir)
+		}
+		if err := fileops.Copy(src.Path, dstPath, true, true, app.IgnorePatterns); err != nil {
+			return fmt.Errorf("copy %s: %v", src.Path, err)
 		}
 	}
 	return nil
 }
 
-// listCollectedFiles lists the currently collected files in the destination directory.
-func (app *App) ListCollectedFiles() {
-	files, err := fileops.ListFiles(app.Destination, 1)
-	if err != nil {
-		log.Printf("Error listing files in destination %s: %v", app.Destination, err)
-		return
-	}
-	if len(files) == 0 {
-		fmt.Println("No files collected in destination")
-		return
-	}
-	fmt.Println("Collected files:")
-	for _, file := range files {
-		fmt.Println(file)
-	}
+// GetCollectPaths returns a list of source paths added to the collector.
+func (app *App) GetCollectPaths() []Source {
+	paths := make([]Source, len(app.SourcePaths))
+	copy(paths, app.SourcePaths)
+
+	// Case-insensitive sort
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.ToLower(paths[i].Path) < strings.ToLower(paths[j].Path)
+	})
+
+	return paths
 }
 
-// listPaths lists the paths added to the collector.
-func (app *App) ListPaths() {
-	if len(app.SourcePaths) > 0 {
-		w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
-		fmt.Fprintln(w, "INDEX\tPATH\tPARENT_DIR\tID")
-		for i, path := range app.SourcePaths {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", i+1, path.Path, path.ParentDir, path.ID)
+// GetIgnorePatterns returns a list of ignore patterns added to the collector.
+func (app *App) GetIgnorePatterns() []string {
+	patterns := make([]string, len(app.IgnorePatterns))
+	i := 0
+	for pattern := range app.IgnorePatterns {
+		patterns[i] = pattern
+		i++
+	}
+
+	// Case-insensitive sort
+	sort.Slice(patterns, func(i, j int) bool {
+		return strings.ToLower(patterns[i]) < strings.ToLower(patterns[j])
+	})
+
+	return patterns
+}
+
+// AddCollectPath adds a new path to the collector.
+func (app *App) AddCollectPath(path, parentDir string) error {
+	// Check if the path exists
+	if _, err := os.Stat(path); err == nil {
+		// Path exists, get the absolute path with correct case
+		absolutePath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("get absolute path for %s: %v", path, err)
 		}
-		w.Flush()
-	} else {
-		fmt.Println("No source paths to collect added")
-	}
-}
 
-// listIgnorePatterns lists the regular expressions patterns that will be ignored by the collector.
-func (app *App) ListIgnorePatterns() {
-	if len(app.SourcePaths) > 0 {
-		fmt.Println("Patterns to ignore:")
-		i := 1
-		for pattern := range app.IgnorePatterns {
-			fmt.Printf("%d. %s\n", i, pattern)
-			i++
+		// Resolve symlinks to ensure correct case
+		resolvedPath, err := filepath.EvalSymlinks(absolutePath)
+		if err != nil {
+			return fmt.Errorf("resolve symlinks for %s: %v", absolutePath, err)
 		}
-	} else {
-		fmt.Println("No ignore patterns added")
-	}
-}
 
-// addPath adds a new source path to the collector.
-func (app *App) AddPath(path, parentDir string) {
-	err := app.DB.AddCollectPath(context.Background(), database.AddCollectPathParams{Path: path, ParentDir: parentDir})
+		// Update the path variable to the resolved path
+		path = resolvedPath
+	} else if os.IsNotExist(err) {
+		// Path does not exist, handle accordingly (e.g., return an error or log)
+		return fmt.Errorf("path does not exist: %s", path)
+	} else {
+		// Some other error occurred
+		return fmt.Errorf("check path %s: %v", path, err)
+	}
+
+	// Check if path already added
+	_, err := app.DB.GetCollectPath(context.Background(), path)
+	if err == nil {
+		return fmt.Errorf("path %s already exists", path)
+	}
+
+	// Add the path to the database
+	err = app.DB.AddCollectPath(context.Background(), database.AddCollectPathParams{Path: path, ParentDir: parentDir})
 	if err != nil {
-		log.Printf("Error adding path %s: %v", path, err)
-		return
+		return fmt.Errorf("add path %s: %v", path, err)
 	}
 	if parentDir != "" {
 		fmt.Println("Path added:", path, "ParentDir:", parentDir)
 	} else {
 		fmt.Println("Path added:", path)
 	}
+	return nil
 }
 
-// removePath removes a source path from the collector.
-func (app *App) RemovePath(pathID int64) {
-	err := app.DB.RemoveCollectPath(context.Background(), pathID)
+// RemoveCollectPath removes a source path from the collector.
+func (app *App) RemoveCollectPath(pathString string) error {
+	path, err := app.DB.GetCollectPath(context.Background(), pathString)
 	if err != nil {
-		log.Printf("Error removing path with ID %d: %v", pathID, err)
-		return
+		return fmt.Errorf("path %s does not exist", pathString)
 	}
-	fmt.Println("Path removed:", pathID)
-}
-
-// addIgnorePattern adds a new source path to the collector.
-func (app *App) AddIgnorePattern(pattern string) {
-	err := app.DB.AddIgnorePattern(context.Background(), pattern)
+	err = app.DB.RemoveCollectPath(context.Background(), pathString)
 	if err != nil {
-		log.Printf("Error adding ignore pattern %s: %v", pattern, err)
-		return
+		return fmt.Errorf("remove path %s: %v", pathString, err)
 	}
-	fmt.Println("Pattern added:", pattern)
+	fmt.Printf("Path removed: %s\n", path.Path)
+	return nil
 }
 
-// listConfig lists the application settings.
-func (app *App) ListConfig() {
-	config, _ := app.DB.GetAppConfig(context.Background())
-	if config == nil {
-		fmt.Println("Configuration was not set")
-		return
+// AddIgnorePattern adds an ignore pattern to the collector.
+func (app *App) AddIgnorePattern(pattern string) error {
+	// Check if pattern already added
+	_, err := app.DB.GetIgnorePattern(context.Background(), pattern)
+	if err != nil {
+		return fmt.Errorf("pattern %s already exists", pattern)
 	}
-	for k, v := range config {
-		fmt.Printf("%v: %v\n", k, v)
+
+	err = app.DB.AddIgnorePattern(context.Background(), pattern)
+	if err != nil {
+		return fmt.Errorf("add pattern %s: %v", pattern, err)
 	}
+
+	fmt.Printf("Pattern added: %s\n", pattern)
+	return nil
+}
+
+// RemoveIgnorePattern removes an ignore pattern from the collector.
+func (app *App) RemoveIgnorePattern(patternString string) error {
+	pattern, err := app.DB.GetIgnorePattern(context.Background(), patternString)
+	if err != nil {
+		return fmt.Errorf("pattern %s does not exist", patternString)
+	}
+	err = app.DB.RemoveIgnorePattern(context.Background(), patternString)
+	if err != nil {
+		return fmt.Errorf("remove pattern %s: %v", patternString, err)
+	}
+	fmt.Printf("Pattern removed: %s\n", pattern.Pattern)
+	return nil
 }

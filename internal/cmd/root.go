@@ -9,9 +9,9 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "dotfiles-collector",
-	Short: "A CLI tool for managing configuration files",
-	Long: `A CLI tool designed to collect configuration files from specified sources and organize them in a defined destination directory. 
-It supports regular expression patterns to ignore unwanted files and directories.`,
+	Short: "An application for managing configuration files",
+	Long: `Dotfiles Collector is a command-line interface (CLI) tool designed to collect configuration files 
+from specified sources and organize them in a defined destination directory.`,
 }
 
 func Execute(app *app.App) {

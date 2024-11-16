@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/chtozamm/dotfiles-collector/internal/app"
-	"github.com/chtozamm/dotfiles-collector/internal/fileops"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -19,7 +18,11 @@ const (
 	collectedFilesView
 	pathsView
 	listPathsView
+	addPathView
+	removePathView
 	ignorePatternsView
+	addPatternView
+	removePatternView
 	listIgnorePatternsView
 )
 
@@ -69,114 +72,159 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
-
 		case "up", "k":
-			if m.cursors[m.state] > 0 {
-				m.cursors[m.state]--
-			}
-
+			m.moveCursor(-1)
 		case "down", "j":
-			if m.cursors[m.state] < len(m.choices[m.state])-1 {
-				m.cursors[m.state]++
-			}
-
+			m.moveCursor(1)
 		case "enter", " ":
-			switch m.state {
-			case entryView:
-				switch m.cursors[m.state] {
-				case 1:
-					m.state = collectedFilesView
-				case 2:
-					m.state = pathsView
-				case 3:
-					m.state = ignorePatternsView
-				}
-			case pathsView:
-				switch m.cursors[m.state] {
-				case 0:
-					m.state = listPathsView
-				}
-			case ignorePatternsView:
-				switch m.cursors[m.state] {
-				case 0:
-					m.state = listIgnorePatternsView
-				}
-			}
+			m.handleEnter()
 		case "backspace":
-			switch m.state {
-			case pathsView, collectedFilesView, ignorePatternsView:
-				m.state = entryView
-			case listPathsView:
-				m.state = pathsView
-			case listIgnorePatternsView:
-				m.state = ignorePatternsView
-			}
+			m.handleBackspace()
 		}
 	}
 	return m, nil
 }
 
-func (m model) View() string {
-	// The header
-	s := "Dotfiles Collector\n\n"
-	switch m.state {
-	case entryView, pathsView, ignorePatternsView:
-
-		for i, choice := range m.choices[m.state] {
-			cursor := " "
-			if m.cursors[m.state] == i {
-				cursor = ">"
-			}
-
-			// Render the row
-			s += fmt.Sprintf("%s %s\n", cursor, choice)
-		}
-
-		// The footer
-		if m.state == entryView {
-			s += "\nPress q to quit.\n"
-		} else {
-			s += "\nPress backspace to go back or q to quit.\n"
-		}
-
-		// Send the UI for rendering
-		return s
-
-	case collectedFilesView:
-		files, err := fileops.ListFiles(m.app.Destination, 1)
-		if err != nil {
-			return err.Error()
-		}
-		var sb strings.Builder
-		sb.WriteString(s)
-		sb.WriteString("Collected files:\n\n")
-		for _, file := range files {
-			sb.WriteString(file + "\n")
-		}
-		sb.WriteString("\nPress backspace to go back or q to quit.\n")
-		return sb.String()
-
-	case listPathsView:
-		var sb strings.Builder
-		sb.WriteString(s)
-		sb.WriteString("Paths to collect:\n\n")
-		for _, path := range m.app.SourcePaths {
-			sb.WriteString(path.Path + "\n")
-		}
-		sb.WriteString("\nPress backspace to go back or q to quit.\n")
-		return sb.String()
-
-	case listIgnorePatternsView:
-		var sb strings.Builder
-		sb.WriteString(s)
-		sb.WriteString("Ignore patterns:\n\n")
-		for pattern := range m.app.IgnorePatterns {
-			sb.WriteString(pattern + "\n")
-		}
-		sb.WriteString("\nPress backspace to go back or q to quit.\n")
-		return sb.String()
+func (m *model) moveCursor(direction int) {
+	if direction < 0 && m.cursors[m.state] > 0 {
+		m.cursors[m.state]--
+	} else if direction > 0 && m.cursors[m.state] < len(m.choices[m.state])-1 {
+		m.cursors[m.state]++
 	}
-	return "Hello there!"
+}
+
+func (m *model) handleEnter() {
+	switch m.state {
+	case entryView:
+		m.handleEntryView()
+	case pathsView:
+		m.handlePathsView()
+	case ignorePatternsView:
+		m.handleIgnorePatternsView()
+		// case removePathView:
+		// 	m.err = m.app.RemoveCollectPath(int64(m.cursors[m.state]))
+		// 	m.state = listPathsView
+	}
+}
+
+func (m *model) handleEntryView() {
+	switch m.cursors[m.state] {
+	case 0:
+		m.state = collectView
+		m.err = m.app.CopyFiles()
+	case 1:
+		m.state = collectedFilesView
+	case 2:
+		m.state = pathsView
+	case 3:
+		m.state = ignorePatternsView
+	}
+}
+
+func (m *model) handlePathsView() {
+	switch m.cursors[m.state] {
+	case 0:
+		m.state = listPathsView
+		// case 2:
+		// 	m.state = removePathView
+	}
+}
+
+func (m *model) handleIgnorePatternsView() {
+	switch m.cursors[m.state] {
+	case 0:
+		m.state = listIgnorePatternsView
+	}
+}
+
+func (m *model) handleBackspace() {
+	switch m.state {
+	case collectView, pathsView, collectedFilesView, ignorePatternsView:
+		m.state = entryView
+	case listPathsView:
+		m.state = pathsView
+	case listIgnorePatternsView:
+		m.state = ignorePatternsView
+	}
+}
+
+func (m model) View() string {
+	s := "Dotfiles Collector\n\n"
+	s += "At the moment, only \"collect\" and \"list\" functions are implemented in TUI.\n"
+	s += "For CLI info, use: dotfiles-collect -h \n\n"
+	switch m.state {
+	case entryView:
+		return m.renderMenu(s, entryView)
+	case collectView:
+		return m.renderCollectView(s)
+	case collectedFilesView:
+		return m.renderCollectedFilesView(s)
+	case pathsView:
+		return m.renderMenu(s, pathsView)
+	case listPathsView:
+		return m.renderListPathsView(s)
+	case ignorePatternsView:
+		return m.renderMenu(s, ignorePatternsView)
+	case listIgnorePatternsView:
+		return m.renderListIgnorePatternsView(s)
+	}
+	return "Unknown state!"
+}
+func (m model) renderMenu(s string, state sessionState) string {
+	for i, choice := range m.choices[state] {
+		cursor := " "
+		if m.cursors[state] == i {
+			cursor = ">"
+		}
+		s += fmt.Sprintf("%s %s\n", cursor, choice)
+	}
+	s += "\nPress backspace to go back or q to quit.\n"
+	return s
+}
+
+func (m model) renderCollectView(s string) string {
+	if m.err != nil {
+		s += fmt.Sprintf("Failed to collect files: %v\n", m.err)
+	} else {
+		s += "Successfully collected the files.\n"
+	}
+	s += "\nPress backspace to go back or q to quit.\n"
+	return s
+}
+
+func (m model) renderCollectedFilesView(s string) string {
+	var sb strings.Builder
+	sb.WriteString(s)
+	sb.WriteString("Collected files:\n\n")
+	sb.WriteString(CollectedFilesTree(m.app, 1))
+	sb.WriteString("\n\nPress backspace to go back or q to quit.\n")
+	return sb.String()
+}
+
+func (m model) renderListPathsView(s string) string {
+	var sb strings.Builder
+	sb.WriteString(s)
+	sb.WriteString("Paths to collect:\n\n")
+	for _, path := range m.app.GetCollectPaths() {
+		sb.WriteString(path.Path)
+		if path.ParentDir != "" {
+			sb.WriteString(", parent: " + path.ParentDir)
+		}
+		sb.WriteString("\n")
+	}
+	sb.WriteString("\nPress backspace to go back or q to quit.\n")
+	return sb.String()
+}
+
+func (m model) renderListIgnorePatternsView(s string) string {
+	var sb strings.Builder
+	sb.WriteString(s)
+	sb.WriteString("Ignore patterns:\n\n")
+	for _, pattern := range m.app.GetIgnorePatterns() {
+		sb.WriteString(pattern + "\n")
+	}
+	sb.WriteString("\nPress backspace to go back or q to quit.\n")
+	return sb.String()
 }
 
 func Execute(app *app.App) {

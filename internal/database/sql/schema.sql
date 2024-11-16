@@ -10,8 +10,3 @@ CREATE TABLE ignore_patterns (
   pattern TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
-
-CREATE TABLE app_config (
-  id   INTEGER PRIMARY KEY,
-  dest_path TEXT NOT NULL
-);

@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func setupPathsCmd(app *app.App, rootCmd *cobra.Command) {
+func setupPathsCmd(app *app.Application, rootCmd *cobra.Command) {
 	pathsCmd := &cobra.Command{
 		Use:   "paths <add|list|remove>",
 		Short: "Manage source paths",
@@ -60,10 +60,15 @@ func setupPathsCmd(app *app.App, rootCmd *cobra.Command) {
 		Long:  "List source paths added to the collector.",
 		Run: func(cmd *cobra.Command, args []string) {
 			var sb strings.Builder
-			for _, path := range app.GetCollectPaths() {
+			paths, err := app.GetCollectPaths()
+			if err != nil {
+				fmt.Printf("Failed to get paths: %s\n", err)
+				return
+			}
+			for _, path := range paths {
 				sb.WriteString(path.Path)
-				if path.ParentDir != "" {
-					sb.WriteString(", parent: " + path.ParentDir)
+				if path.Subdir != "" {
+					sb.WriteString(", parent: " + path.Subdir)
 				}
 				sb.WriteString("\n")
 			}

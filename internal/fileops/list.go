@@ -1,9 +1,10 @@
 package fileops
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -11,6 +12,7 @@ import (
 type File struct {
 	Path     string
 	Children []File
+	IsDir    bool
 }
 
 // ListFiles returns a list of collected files sorted by their paths.
@@ -35,17 +37,23 @@ func ListFiles(dir string) ([]File, error) {
 			// Recursively list files in subdirectories
 			subFiles, err := ListFiles(entryPath)
 			if err != nil {
-				return nil, err // Return the error directly
+				return nil, err
 			}
+			file.IsDir = true
 			file.Children = subFiles
 		}
 
 		files = append(files, file)
 	}
 
-	// Case-insensitive sort
-	sort.Slice(files, func(i, j int) bool {
-		return strings.ToLower(files[i].Path) < strings.ToLower(files[j].Path)
+	slices.SortFunc(files, func(a, b File) int {
+		if a.IsDir && !b.IsDir {
+			return -1 // Directories come before non-directories
+		}
+		if !a.IsDir && b.IsDir {
+			return 1 // Non-directories come after directories
+		}
+		return cmp.Compare(strings.ToLower(a.Path), strings.ToLower(b.Path))
 	})
 
 	return files, nil

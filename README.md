@@ -1,36 +1,51 @@
 # Dotfiles Collector
 
-Dotfiles Collector is a command-line interface (CLI) tool designed to gather configuration files across an operating system.
-It allows you to manage paths to files and directories you want to collect and then copy them in one place with a single command.
-Additionally, you can add ignore patterns as regular expressions that Dotfiles Collector would ignore if encountered. 
+Dotfiles Collector is a command-line interface (CLI) tool with a terminal user interface (TUI) designed to gather configuration files from across your operating system into one centralized location. It simplifies the process of backing up your files by allowing you to manage the paths from which you want to collect files and then copy them with a single command.
+
+Additionally, you can specify ignore patterns using regular expressions, which Dotfiles Collector will respect by ignoring any files that match these patterns.
 
 ## Requirements
 
 - Go is required to build or [install](#installation) the application
 - Both **Windows** and **Unix**-like operating systems are supported
 
-## Foreword
+## Directories
 
 Dotfiles Collector creates two directories when you use it for the first time:
 
-|             | Collected Files          | Application Data                    |
-| ----------- | ------------------------ | ----------------------------------- |
-| **Windows** | `%USERPROFILE%/dotfiles` | `%LOCALAPPDATA%/dotfiles-collector` |
-| **Unix**    | `~/dotfiles`             | `~/.config/dotfiles-collector`      |
+|             | Collected Files         | Application Data                   |
+| ----------- | ----------------------- | ---------------------------------- |
+| **Windows** | `$USERPROFILE/dotfiles` | `$LOCALAPPDATA/dotfiles_collector` |
+| **Unix**    | `$HOME/dotfiles`        | `$HOME/.config/dotfiles_collector` |
 
-The first directory is where you find the files you have collected. 
-The second directory contains an SQLite3 database file with your configuration.
+The first directory is where you will find the files you have collected. The second directory contains an SQLite3 database file that stores your application data.
 
 ## Usage
 
 > [!NOTE]
 > Dotfiles Collector can operate in two modes: **command mode** and **interactive mode**.
 
+### Interactive mode
+
+To start **interactive mode**, run `dotfiles-collector` without additional arguments:
+
+```sh
+dotfiles-collector
+```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="/docs/tui-demo.gif">
+  <source media="(prefers-color-scheme: light)" srcset="/docs/tui-demo.gif">
+  <img width="600" alt="A demonstration of interactive mode" src="/docs/tui-demo.gif">
+</picture>
+
 ### Command Mode
 
-To use **command mode**, run `dotfiles-collector --help` to display available commands.
+To use **command mode**, run `dotfiles-collector --help` to display available commands:
 
 ```plaintext
+> dotfiles-collector --help
+
 Usage:
   dotfiles-collector [command]
 
@@ -44,54 +59,42 @@ Available Commands:
 
 #### Examples
 
-You can specify which directories or files it should collect. 
+You can specify which directories or files Dotfiles Collector should collect using the following command:
 
 ```sh
-dotfiles-collector paths add "~/.gitconfig"
+dotfiles-collector paths add "$HOME/.gitconfig"
 ```
 
-It also works with relative to current working directory paths:
+It also works with paths relative to the current working directory:
 
 ```sh
 dotfiles-collector paths add .
 ```
 
-Sometimes you might want the collector to create a subdirectory. To do so, you can specify a second argument 
-after the source path. The following example will create a `backup` directory for `sqlite.db`:
-
+If you want the collector to create a subdirectory, you can specify a second argument after the source path. The following example will create a `backup` directory for `sqlite.db`:
 
 ```sh
-dotfiles-collector paths add "~/my-project/sqlite.db" "backup"
+dotfiles-collector paths add "$HOME/my-project/sqlite.db" "backup"
 ```
 
-Optionally, you can add regular expressions (ignore patterns) that collector will skip if it encounters file 
-or directory which name matches the pattern. For example:
+Optionally, you can add regular expressions (ignore patterns) that the collector will skip if it encounters a file or directory whose name matches the pattern. For example:
 
 ```sh
-dotfiles-collector ignore add ".*node_modules$"
+dotfiles-collector ignore add "\.git$"
+dotfiles-collector ignore add "node_modules"
 ```
 
-The following Windows example will result in the whole `PowerShell` directory being collected except for its child directory `Modules`:
+In the following Windows example, the entire `PowerShell` directory will be collected, except for its child directory `Modules`:
 
 ```sh
 dotfiles-collector paths add "D:\Documents\PowerShell"
-dotfiles-collector ignore add ".*PowerShell[/\\]Modules$"
+dotfiles-collector ignore add "PowerShell[\/\\]Modules"
 dotfiles-collector collect
 ```
 
-### Interactive mode
-
-To start **interactive mode**, simply run `dotfiles-collector` without additional arguments.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://i.imgur.com/oSVVtbY.gif">
-  <source media="(prefers-color-scheme: light)" srcset="https://i.imgur.com/oSVVtbY.gif">
-  <img width="600" alt="A demonstration of interactive mode" src="https://i.imgur.com/oSVVtbY.gif">
-</picture>
-
 ## Installation
 
-Install with Go:
+You can install Dotfiles Collector using Go:
 
 ```sh
 go install github.com/chtozamm/dotfiles-collector@latest
@@ -102,10 +105,10 @@ go install github.com/chtozamm/dotfiles-collector@latest
 Dotfiles Collector is built using the following tools and libraries:
 
 - **Go**: The programming language used to develop the application.
-- **SQLite3**: A lightweight embedded database used to store configuration data.
+- **SQLite3**: A lightweight embedded database for storing application data.
 - **Cobra**: A library for creating command-line applications.
-- **Charm**: A library for building interactive terminal applications.
+- **Bubble Tea**: A framework for building interactive terminal applications.
 
 ## License
 
-[MIT](https://github.com/chtozamm/dotfiles-collector/blob/main/LICENSE.md)
+[MIT](/LICENSE.md)

@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func setupIgnoreCmd(app *app.App, rootCmd *cobra.Command) {
+func setupIgnoreCmd(app *app.Application, rootCmd *cobra.Command) {
 	ignoreCmd := &cobra.Command{
 		Use:   "ignore <add|list|remove>",
 		Short: "Manage ignore patterns",
@@ -47,6 +47,7 @@ func setupIgnoreCmd(app *app.App, rootCmd *cobra.Command) {
 			err := app.RemoveIgnorePattern(args[0])
 			if err != nil {
 				fmt.Printf("Failed to remove pattern: %s\n", err)
+				return
 			}
 		},
 	}
@@ -57,7 +58,12 @@ func setupIgnoreCmd(app *app.App, rootCmd *cobra.Command) {
 		Long:  "List ignore patterns added to the collector.",
 		Run: func(cmd *cobra.Command, args []string) {
 			var sb strings.Builder
-			for _, pattern := range app.GetIgnorePatterns() {
+			patterns, err := app.GetIgnorePatterns()
+			if err != nil {
+				fmt.Printf("Failed to get ignore patterns: %s\n", err)
+				return
+			}
+			for _, pattern := range patterns {
 				sb.WriteString(pattern + "\n")
 			}
 			fmt.Print(sb.String())

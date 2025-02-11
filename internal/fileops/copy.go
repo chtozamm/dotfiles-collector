@@ -12,7 +12,7 @@ import (
 // Optionally, it can overwrite existing files and create destination directory
 // if it doesn't exist. If ignore patterns are provided, it can check source against them
 // and skip copying if match is found.
-func Copy(src, dst string, overwrite bool, createDst bool, ignorePatterns map[string]bool) error {
+func Copy(src, dst string, overwrite bool, createDst bool, ignorePatterns []string) error {
 	// Return if source is in the ignore list
 	if shouldIgnorePath(src, ignorePatterns) {
 		return nil
@@ -21,7 +21,10 @@ func Copy(src, dst string, overwrite bool, createDst bool, ignorePatterns map[st
 	// Check if source file exists
 	srcFileInfo, err := os.Stat(src)
 	if err != nil {
-		return fmt.Errorf("source %q does not exist", src)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("source %q does not exist", src)
+		}
+		return fmt.Errorf("stat file: %v", err)
 	}
 
 	// Check if destination directory exists
@@ -32,13 +35,12 @@ func Copy(src, dst string, overwrite bool, createDst bool, ignorePatterns map[st
 	// Call appropriate copy function
 	if srcFileInfo.IsDir() {
 		return copyDirectory(src, dst, overwrite, ignorePatterns)
-	} else {
-		return copyFile(src, dst, overwrite, ignorePatterns)
 	}
+	return copyFile(src, dst, overwrite, ignorePatterns)
 }
 
 // copyFile copies a file to a specified destination.
-func copyFile(src, dst string, overwrite bool, ignorePatterns map[string]bool) error {
+func copyFile(src, dst string, overwrite bool, ignorePatterns []string) error {
 	// Return if source is in the ignore list
 	if shouldIgnorePath(src, ignorePatterns) {
 		return nil
@@ -50,24 +52,32 @@ func copyFile(src, dst string, overwrite bool, ignorePatterns map[string]bool) e
 	// Check if the destination file exists
 	if !overwrite {
 		if _, err := os.Stat(dst); err == nil {
-			return fmt.Errorf("destination file %q already exists and overwrite is set to false", dst)
+			if os.IsExist(err) {
+				return fmt.Errorf("destination file %q already exists and overwrite is set to false", dst)
+			}
+			return fmt.Errorf("stat file: %v", err)
 		}
 	}
 
 	// Create parent directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0740); err != nil {
 		return fmt.Errorf("create directory %q: %v", filepath.Dir(dst), err)
 	}
 
 	// Open source file
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return fmt.Errorf("open source file %q: %v", src, err)
 	}
 	defer srcFile.Close()
 
+	srcFileInfo, err := srcFile.Stat()
+	if err != nil {
+		return fmt.Errorf("stat source file %q: %v", src, err)
+	}
+
 	// Open or create destination file
-	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	dstFile, err := os.OpenFile(filepath.Clean(dst), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, srcFileInfo.Mode())
 	if err != nil {
 		return fmt.Errorf("open destination file %q: %v", dst, err)
 	}
@@ -82,7 +92,7 @@ func copyFile(src, dst string, overwrite bool, ignorePatterns map[string]bool) e
 }
 
 // copyDirectory copies a directory and its contents to a specified destination.
-func copyDirectory(src, dst string, overwrite bool, ignorePatterns map[string]bool) error {
+func copyDirectory(src, dst string, overwrite bool, ignorePatterns []string) error {
 	// Return if source is in the ignore list
 	if shouldIgnorePath(src, ignorePatterns) {
 		return nil
@@ -97,7 +107,7 @@ func copyDirectory(src, dst string, overwrite bool, ignorePatterns map[string]bo
 	}
 
 	// Create the destination directory
-	if err := os.MkdirAll(dst, os.ModePerm); err != nil {
+	if err := os.MkdirAll(dst, 0740); err != nil {
 		return fmt.Errorf("create destination directory %q: %v", dst, err)
 	}
 

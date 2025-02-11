@@ -2,49 +2,48 @@ package app
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/chtozamm/dotfiles-collector/internal/database"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
-// SetupDB opens the database connection, initializes the schema and assigns
-// the connection to the application.
-func (app *App) SetupDB() {
+// SetupDB opens the database connection, initializes the schema
+// and assigns the connection to the application.
+func (app *Application) SetupDB() error {
 	// Ensure the application data directory exists, create if it doesn't
-	if err := os.MkdirAll(app.DataDir, 0o755); err != nil {
-		log.Fatalf("Error creating application data directory %s: %v", app.DataDir, err)
+	if err := os.MkdirAll(app.DataDir, 0o740); err != nil {
+		return fmt.Errorf("create application data directory: %v", err)
 	}
 
 	// Open a connection to the SQLite database
-	db, err := sql.Open("sqlite3", filepath.Join(app.DataDir, "dotfiles.db"))
+	db, err := sql.Open("sqlite3", filepath.Join(app.DataDir, "dotfiles_collector.db"))
 	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
+		return fmt.Errorf("open database: %v", err)
 	}
 
 	// Initialize the database schema (tables and triggers)
 	if _, err = db.Exec(schema); err != nil {
-		log.Fatalf("Error setting up database: %v", err)
+		return fmt.Errorf("set up database: %v", err)
 	}
 
-	// Assign the database connection to the application
 	app.DB = database.New(db)
+
+	return nil
 }
 
 var schema = `
 CREATE TABLE IF NOT EXISTS collect_paths (
-  id   INTEGER PRIMARY KEY,
-  path TEXT NOT NULL UNIQUE,
-	parent_dir TEXT NOT NULL,
+  id         INTEGER PRIMARY KEY,
+  path       TEXT NOT NULL UNIQUE,
+  parent_dir TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS ignore_patterns (
-  id   INTEGER PRIMARY KEY,
-  pattern TEXT NOT NULL UNIQUE,
+  id         INTEGER PRIMARY KEY,
+  pattern    TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
 );
 

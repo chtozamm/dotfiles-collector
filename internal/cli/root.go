@@ -1,8 +1,6 @@
-package cmd
+package cli
 
 import (
-	"log"
-
 	"github.com/chtozamm/dotfiles-collector/internal/app"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +12,8 @@ var rootCmd = &cobra.Command{
 from specified sources and organize them in a defined destination directory.`,
 }
 
-func Execute(app *app.App) {
+// Execute starts the application in the command mode.
+func Execute(app *app.Application) error {
 	// Cobra configuration
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
@@ -27,6 +26,8 @@ func Execute(app *app.App) {
 
 	// Execute commands
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }

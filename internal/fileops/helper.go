@@ -13,10 +13,10 @@ func doesDirExist(path string) bool {
 }
 
 // shouldIgnorePath returns true if the path matches any of the ignore patterns.
-func shouldIgnorePath(path string, ignorePatterns map[string]bool) bool {
+func shouldIgnorePath(path string, ignorePatterns []string) bool {
 	cleanPath := filepath.Clean(path)
 
-	for ignorePath := range ignorePatterns {
+	for _, ignorePath := range ignorePatterns {
 		re, err := regexp.Compile(ignorePath)
 		if err != nil {
 			continue // Skip this ignorePath if there's an error

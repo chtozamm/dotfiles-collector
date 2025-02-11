@@ -1,11 +1,13 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/chtozamm/dotfiles-collector/internal/database"
@@ -13,17 +15,28 @@ import (
 )
 
 // CopyFiles prepares source paths and copies them to the destination.
-func (app *App) CopyFiles() error {
-	if len(app.SourcePaths) == 0 {
-		return fmt.Errorf("no source paths found in database to collect")
+func (app *Application) CopyFiles() error {
+	paths, err := app.GetCollectPaths()
+	if err != nil {
+		return fmt.Errorf("get paths: %v", err)
 	}
-	for _, src := range app.SourcePaths {
+
+	if len(paths) == 0 {
+		return fmt.Errorf("no paths found in database")
+	}
+
+	ignorePatterns, err := app.GetIgnorePatterns()
+	if err != nil {
+		return fmt.Errorf("get ignore patterns: %v", err)
+	}
+
+	for _, src := range paths {
 		dstPath := app.Destination
 		// Append parent directory name to destination if specified
-		if src.ParentDir != "." {
-			dstPath = filepath.Join(app.Destination, src.ParentDir)
+		if src.Subdir != "." {
+			dstPath = filepath.Join(app.Destination, src.Subdir)
 		}
-		if err := fileops.Copy(src.Path, dstPath, true, true, app.IgnorePatterns); err != nil {
+		if err := fileops.Copy(src.Path, dstPath, true, true, ignorePatterns); err != nil {
 			return fmt.Errorf("copy %s: %v", src.Path, err)
 		}
 	}
@@ -31,63 +44,94 @@ func (app *App) CopyFiles() error {
 }
 
 // GetCollectPaths returns a list of source paths added to the collector.
-func (app *App) GetCollectPaths() []Source {
-	paths := make([]Source, len(app.SourcePaths))
-	copy(paths, app.SourcePaths)
+func (app *Application) GetCollectPaths() ([]SourcePath, error) {
+	paths := []SourcePath{}
+	collectPaths, err := app.DB.GetCollectPaths(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("get collect paths: %v", err)
+	}
+	for _, path := range collectPaths {
+		paths = append(paths, SourcePath{ID: path.ID, Path: path.Path, Subdir: path.ParentDir})
+	}
 
-	// Case-insensitive sort
-	sort.Slice(paths, func(i, j int) bool {
-		return strings.ToLower(paths[i].Path) < strings.ToLower(paths[j].Path)
+	slices.SortFunc(paths, func(a, b SourcePath) int {
+		return cmp.Compare(a.Path, b.Path)
 	})
 
-	return paths
+	return paths, nil
 }
 
 // GetIgnorePatterns returns a list of ignore patterns added to the collector.
-func (app *App) GetIgnorePatterns() []string {
-	patterns := make([]string, len(app.IgnorePatterns))
-	i := 0
-	for pattern := range app.IgnorePatterns {
-		patterns[i] = pattern
-		i++
+func (app *Application) GetIgnorePatterns() ([]string, error) {
+	patterns := []string{}
+	patternsEntries, err := app.DB.GetIgnorePatterns(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("get ignore patterns: %v", err)
+	}
+	for _, pattern := range patternsEntries {
+		patterns = append(patterns, pattern.Pattern)
 	}
 
-	// Case-insensitive sort
-	sort.Slice(patterns, func(i, j int) bool {
-		return strings.ToLower(patterns[i]) < strings.ToLower(patterns[j])
+	slices.SortFunc(patterns, func(a, b string) int {
+		return cmp.Compare(a, b)
 	})
 
-	return patterns
+	return patterns, nil
 }
 
 // AddCollectPath adds a new path to the collector.
-func (app *App) AddCollectPath(path, parentDir string) error {
+func (app *Application) AddCollectPath(path, parentDir string) error {
+	if parentDir == "" {
+		// Check for "->" in the given path: if it is provided,
+		// the left side is path, the right side is parentDir
+		matches := regexp.MustCompile(`\s*([^->]+?)\s*->\s*([^->]+)`).FindStringSubmatch(path)
+		if len(matches) == 3 {
+			path, parentDir = strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2])
+		}
+
+		// Check for environmental variables and replace them with values
+		matches = regexp.MustCompile(`(\$\w+)`).FindStringSubmatch(path)
+		if len(matches) > 0 {
+			for _, match := range matches[1:] {
+				env, found := os.LookupEnv(match[1:])
+				if !found {
+					return fmt.Errorf("path contains env %s, but it cannot be retrieved", match)
+				}
+				path = strings.ReplaceAll(path, match, env)
+			}
+		}
+	}
+
+	// Clean given paths, trim quotes
+	path = filepath.Clean(strings.Trim(path, "'\""))
+	parentDir = filepath.Clean(strings.Trim(parentDir, "'\""))
+	if parentDir == "." {
+		parentDir = ""
+	}
+
 	// Check if the path exists
-	if _, err := os.Stat(path); err == nil {
-		// Path exists, get the absolute path with correct case
-		absolutePath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("get absolute path for %s: %v", path, err)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("path does not exist: %s", path)
 		}
-
-		// Resolve symlinks to ensure correct case
-		resolvedPath, err := filepath.EvalSymlinks(absolutePath)
-		if err != nil {
-			return fmt.Errorf("resolve symlinks for %s: %v", absolutePath, err)
-		}
-
-		// Update the path variable to the resolved path
-		path = resolvedPath
-	} else if os.IsNotExist(err) {
-		// Path does not exist, handle accordingly (e.g., return an error or log)
-		return fmt.Errorf("path does not exist: %s", path)
-	} else {
-		// Some other error occurred
 		return fmt.Errorf("check path %s: %v", path, err)
 	}
 
+	// Get the absolute path with correct case
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("get absolute path for %s: %v", path, err)
+	}
+
+	// Resolve symlinks to ensure correct case
+	resolvedPath, err := filepath.EvalSymlinks(absolutePath)
+	if err != nil {
+		return fmt.Errorf("resolve symlinks for %s: %v", absolutePath, err)
+	}
+	path = resolvedPath
+
 	// Check if path already added
-	_, err := app.DB.GetCollectPath(context.Background(), path)
+	_, err = app.DB.GetCollectPath(context.Background(), path)
 	if err == nil {
 		return fmt.Errorf("path %s already exists", path)
 	}
@@ -97,33 +141,21 @@ func (app *App) AddCollectPath(path, parentDir string) error {
 	if err != nil {
 		return fmt.Errorf("add path %s: %v", path, err)
 	}
-	if parentDir != "" {
-		fmt.Println("Path added:", path, "ParentDir:", parentDir)
-	} else {
-		fmt.Println("Path added:", path)
-	}
-	return nil
-}
 
-// RemoveCollectPath removes a source path from the collector.
-func (app *App) RemoveCollectPath(pathString string) error {
-	path, err := app.DB.GetCollectPath(context.Background(), pathString)
-	if err != nil {
-		return fmt.Errorf("path %s does not exist", pathString)
-	}
-	err = app.DB.RemoveCollectPath(context.Background(), pathString)
-	if err != nil {
-		return fmt.Errorf("remove path %s: %v", pathString, err)
-	}
-	fmt.Printf("Path removed: %s\n", path.Path)
 	return nil
 }
 
 // AddIgnorePattern adds an ignore pattern to the collector.
-func (app *App) AddIgnorePattern(pattern string) error {
-	// Check if pattern already added
-	_, err := app.DB.GetIgnorePattern(context.Background(), pattern)
+func (app *Application) AddIgnorePattern(pattern string) error {
+	// Try to compile regex before proceeding
+	_, err := regexp.Compile(pattern)
 	if err != nil {
+		return err
+	}
+
+	// Check if pattern already added
+	_, err = app.DB.GetIgnorePattern(context.Background(), pattern)
+	if err == nil {
 		return fmt.Errorf("pattern %s already exists", pattern)
 	}
 
@@ -131,14 +163,25 @@ func (app *App) AddIgnorePattern(pattern string) error {
 	if err != nil {
 		return fmt.Errorf("add pattern %s: %v", pattern, err)
 	}
+	return nil
+}
 
-	fmt.Printf("Pattern added: %s\n", pattern)
+// RemoveCollectPath removes a source path from the collector.
+func (app *Application) RemoveCollectPath(pathname string) error {
+	_, err := app.DB.GetCollectPath(context.Background(), pathname)
+	if err != nil {
+		return fmt.Errorf("path %s does not exist", pathname)
+	}
+	err = app.DB.RemoveCollectPath(context.Background(), pathname)
+	if err != nil {
+		return fmt.Errorf("remove path %s: %v", pathname, err)
+	}
 	return nil
 }
 
 // RemoveIgnorePattern removes an ignore pattern from the collector.
-func (app *App) RemoveIgnorePattern(patternString string) error {
-	pattern, err := app.DB.GetIgnorePattern(context.Background(), patternString)
+func (app *Application) RemoveIgnorePattern(patternString string) error {
+	_, err := app.DB.GetIgnorePattern(context.Background(), patternString)
 	if err != nil {
 		return fmt.Errorf("pattern %s does not exist", patternString)
 	}
@@ -146,6 +189,27 @@ func (app *App) RemoveIgnorePattern(patternString string) error {
 	if err != nil {
 		return fmt.Errorf("remove pattern %s: %v", patternString, err)
 	}
-	fmt.Printf("Pattern removed: %s\n", pattern.Pattern)
+	return nil
+}
+
+// RemoveCollectPaths removes the given paths from the database.
+func (app *Application) RemoveCollectPaths(pathnames []string) error {
+	for _, pathname := range pathnames {
+		err := app.RemoveCollectPath(pathname)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RemoveIgnorePatterns removes the given patterns from the database.
+func (app *Application) RemoveIgnorePatterns(patterns []string) error {
+	for _, pattern := range patterns {
+		err := app.RemoveIgnorePattern(pattern)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

@@ -1,4 +1,4 @@
-package cmd
+package cli
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func setupCollectCmd(app *app.App, rootCmd *cobra.Command) {
+func setupCollectCmd(app *app.Application, rootCmd *cobra.Command) {
 	collectCmd := &cobra.Command{
 		Use:   "collect",
 		Short: "Collect files specified in source paths",

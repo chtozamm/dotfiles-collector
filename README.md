@@ -33,11 +33,9 @@ To start **interactive mode**, run `dotfiles-collector` without additional argum
 dotfiles-collector
 ```
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="/docs/tui-demo.gif">
-  <source media="(prefers-color-scheme: light)" srcset="/docs/tui-demo.gif">
-  <img width="600" alt="A demonstration of interactive mode" src="/docs/tui-demo.gif">
-</picture>
+<p>
+    <img src="/docs/tui-demo.gif" width="100%" alt="A demonstration of terminal user interface">
+</p>
 
 ### Command Mode
 
